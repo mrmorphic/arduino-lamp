@@ -36,6 +36,8 @@ int led3BluPin = 0;
 int dialPin = 0;        /* variable resistor */
 int modeButtonPin = 5;  /* input button because we used all the digitals */
 
+int whiteLedPin = 16;       /* white LED output on Port C2, which can be addressed by digital functions
+
 /* Mode:
  * MODE_COLOURCYCLE - slow cyling colours, speed controlled by variable resistor.
  * MODE_RANDOM      - random colours, speed controlled by variable resistor.
@@ -45,19 +47,22 @@ int modeButtonPin = 5;  /* input button because we used all the digitals */
 #define MODE_RANDOM         1
 #define MODE_MONOCHROMATIC  2
 #define MODE_SOLIDCOLOUR    3
+#define MODE_WHITELIGHT     4
 #define MODE_FIRST          MODE_COLOURCYCLE
-#define MODE_LAST           MODE_SOLIDCOLOUR
+#define MODE_LAST           MODE_WHITELIGHT
 
 /* Current mode, one of the MODE constants. */
 int displayMode;
 
 // This the frame buffer :-)
 long currentColour[4] = {0L, 0L, 0L, 0L};
+int whiteBrightness = 0;
 
 // Colour manipulation macros
 #define SETCOLOUR(led,colour) currentColour[led] = colour
 #define GETCOLOUR(led) (currentColour[(led)])
 #define RGBCOMBINE(r,g,b) ((long) ((long)(r) << 16L) | (long) (((g) << 8) & 0xff00) | (long) ((b) & 0x00ff))
+#define SETWHITE(brightness) whiteBrightness = (brightness)
 
 void init_control();
 void init_pwm();
@@ -70,6 +75,8 @@ void init_solidcolour();
 void ping_solidcolour();
 void init_monochromatic();
 void ping_monochromatic();
+void init_whitelight();
+void ping_whitelight();
 
 void setup() {                
   pinMode(led0RedPin, OUTPUT);
@@ -84,6 +91,7 @@ void setup() {
   pinMode(8 + led3RedPin, OUTPUT);
   pinMode(8 + led3GrnPin, OUTPUT);
   pinMode(8 + led3BluPin, OUTPUT);
+  pinMode(whiteLedPin, OUTPUT);
 
   analogReference(EXTERNAL);
 
@@ -94,6 +102,7 @@ void setup() {
   init_random();
   init_monochromatic();
   init_solidcolour();
+  init_whitelight();
 }
 
 void updateLed();
@@ -131,6 +140,9 @@ void loop()
     case MODE_SOLIDCOLOUR:
       ping_solidcolour();
       break;
+    case MODE_WHITELIGHT:
+      ping_whitelight();
+      break;
     default:
       displayMode = MODE_FIRST;
       break; 
@@ -149,6 +161,12 @@ void loop()
       displayMode++;
       if (displayMode > MODE_LAST)
         displayMode = MODE_FIRST;
+      // clear all colours
+      SETCOLOUR(0, 0L);
+      SETCOLOUR(1, 0L);
+      SETCOLOUR(2, 0L);
+      SETCOLOUR(3, 0L);
+      SETWHITE(0);
     }
     lastButton = button;
   }
@@ -244,6 +262,15 @@ void ping_random() {
   SETCOLOUR(1, random(0, 0x1000000));
   SETCOLOUR(2, random(0, 0x1000000));
   SETCOLOUR(3, random(0, 0x1000000));
+}
+
+/** WHITE LIGHT MODE */
+void init_whitelight() {
+}
+
+void ping_whitelight() {
+  long d = (long) dial;
+  SETWHITE((int)(dial >> 2));
 }
 
 /***** MONOCHROMATIC MODE *****/
@@ -371,6 +398,7 @@ const int PWM_GREEN = 1;
 const int PWM_BLUE = 2;
 
 int pwmCounter[4][3]; // one for each LED, and colour component, decrement until zero
+int pwmCounterWhite;
 int pwmCount;
 
 #define CLEAR_PIN(port,pin) (port&=(~(1<<pin)))
@@ -391,6 +419,7 @@ void updateLed() {
       pwmCounter[i][PWM_GREEN] = (int) ((currentColour[i] >> 8) & 0x00ff);
       pwmCounter[i][PWM_BLUE] = (int) (currentColour[i] & 0x00ff);
     }
+    pwmCounterWhite = whiteBrightness;
   }
 
   PWM(pwmCounter[0][PWM_RED],   PORTD, led0RedPin);
@@ -408,6 +437,8 @@ void updateLed() {
   PWM(pwmCounter[3][PWM_RED],   PORTB, led3RedPin);
   PWM(pwmCounter[3][PWM_GREEN], PORTB, led3GrnPin);
   PWM(pwmCounter[3][PWM_BLUE],  PORTB, led3BluPin);
+
+  PWM(pwmCounterWhite,          PORTC, 2);
 
   pwmCount++;
 }
