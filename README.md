@@ -1,5 +1,9 @@
 # Emily's lamp
 
+## Purpose
+
+This is mounted in a lamp and sits as a combined nightlight / reading light for my 11-year old daughter Emily.
+
 ## Circuitry
 
 The circuit is based on an ATMega328 with the following hardware attached:
